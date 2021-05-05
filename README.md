@@ -1,2 +1,7 @@
-# mh_p2
-Repositorio Practica 2 MH
+# Practica 2
+Repositorio de la practica
+
+## Algoritmo Genetico
+
+
+## Algoritmo Memetico
