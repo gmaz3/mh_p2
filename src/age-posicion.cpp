@@ -13,8 +13,6 @@
 #include <time.h>
 #include <algorithm>
 
-#define MAX 100000
-
 using namespace std;
 using namespace std::chrono;
 

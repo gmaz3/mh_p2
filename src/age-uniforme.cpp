@@ -1,6 +1,6 @@
 /*  Autor: Juan Miguel Gomez
-    Compilar: g++ -O2 -o agg-uniforme agg-uniforme.cpp
-    Ejecutar: ./agg-uniforme datos/file.txt seed
+    Compilar: g++ -O2 -o age-uniforme age-uniforme.cpp
+    Ejecutar: ./age-uniforme datos/file.txt seed
 */
 
 #include <iostream>
@@ -12,8 +12,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <algorithm>
-
-#define MAX 100000
 
 using namespace std;
 using namespace std::chrono;

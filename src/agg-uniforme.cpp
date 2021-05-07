@@ -12,8 +12,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define MAX 100000
-
 using namespace std;
 using namespace std::chrono;
 
