@@ -11,6 +11,7 @@
 #include <string>
 #include <stdlib.h>
 #include <time.h>
+#include <algorithm>
 
 #define MAX 100000
 
@@ -66,6 +67,8 @@ class maximumDiversityProblem
 
     const int POP_SIZE = 50;
 
+    const int NG_SIZE = 2;
+
     const double CROSS_PROB = 0.7;
 
     const double MUT_PROB = 0.1;
@@ -85,7 +88,7 @@ class maximumDiversityProblem
     // Calcula la diversidad entre los elementos seleccionados con el metodo del MaxSum
     double evaluation();
 
-
+    bool ordenFitness (vector<bool> a, vector<bool> b);
 };
 
 int main(int argc, char const *argv[])
@@ -181,41 +184,53 @@ void maximumDiversityProblem::initializePopulation()
     //Calculamos el fitness de cada elemento de la poblacion
     for (int i = 0; i < POP_SIZE; i++) {
         population_fitness[i] = evaluation(population[i]);
-        // cout << population_fitness[i] << endl;
+    }
+
+    //Ordenamos la poblacion por fitness
+    int i, j;
+    for (i = 0; i < POP_SIZE-1; i++){
+        double min_fitness = population_fitness[i];
+        int mfi = i;
+
+        for (j = i+1; j < POP_SIZE; j++) {
+            if (population_fitness[j] < min_fitness){
+                min_fitness = population_fitness[j];
+                mfi = j;
+            }
+        }
+
+        vector<bool> aux = population[mfi];
+        population_fitness[mfi] = population_fitness[i];
+        population[mfi] = population[i];
+        population_fitness[i] = min_fitness;
+        population[i] = aux;
     }
 
 }
 
 void maximumDiversityProblem::selection()
 {
-    next_generation.resize(POP_SIZE);
+    next_generation.resize(NG_SIZE);
 
-    for (int i = 0; i < POP_SIZE; i++) {
+    for (int i = 0; i < NG_SIZE; i++) {
         int first  =  rand() % POP_SIZE;
         int second =  rand() % POP_SIZE;
 
         if(population_fitness[first] > population_fitness[second]){
             next_generation[i] = population[first];
-            // cout << " -> " << population_fitness[first] << endl;
         }else{
             next_generation[i] = population[second];
-            // cout << " -> " << population_fitness[second] << endl;
         }
     }
 }
 
 void maximumDiversityProblem::crossover()
 {
-    const int CROSS_NUM = POP_SIZE * CROSS_PROB * 0.5;
+    vector<bool> first = uniform_crossover(next_generation[0],next_generation[1]);
+    vector<bool> second = uniform_crossover(next_generation[0],next_generation[1]);
 
-    for (int i = 0; i < CROSS_NUM; i++) {
-        int idx = i*2;
-        vector<bool> first = uniform_crossover(next_generation[idx],next_generation[idx+1]);
-        vector<bool> second = uniform_crossover(next_generation[idx],next_generation[idx+1]);
-
-        next_generation[idx] = first;
-        next_generation[idx+1] = second;
-    }
+    next_generation[0] = first;
+    next_generation[1] = second;
 }
 
 /**    Esta funcion implementa el cruze explicado en el seminario
@@ -319,45 +334,59 @@ vector<bool> maximumDiversityProblem::uniform_crossover(vector<bool> first_paren
 
 void maximumDiversityProblem::mutation()
 {
-    const int MUT_NUM = MUT_PROB * n;
-    // cout << "mut: " << MUT_PROB * n << endl;
+    for (int i = 0; i < NG_SIZE; i++) {
+        //Generamos un real aleatorio entre 0-1
+        double random = rand() % (int) 1e8;
+        random /= 1e8;
 
-    for (int i = 0; i < MUT_NUM; i++) {
-        int idx = rand() % POP_SIZE;
-        int gen1 = rand() % n;
-        int gen2;
+        if(random < MUT_PROB){
+            int gen1 = rand() % n;
+            int gen2;
 
-        //Buscamos dos genes diferentes
-        do gen2 = rand() % n;
-        while(next_generation[idx][gen1] == next_generation[idx][gen2]);
+            do gen2 = rand() % n;
+            while(next_generation[i][gen1] == next_generation[i][gen2]);
 
-        //Intercambiamos genes
-        next_generation[idx][gen1] = !next_generation[idx][gen1];
-        next_generation[idx][gen2] = !next_generation[idx][gen2];
+            next_generation[i][gen1] = !next_generation[i][gen1];
+            next_generation[i][gen2] = !next_generation[i][gen2];
+        }
     }
 }
 
 void maximumDiversityProblem::replace()
 {
-    int max_fitness = -1;
-    int mfi = -1;
+    double fchild_fitness = evaluation(next_generation[0]);
+    double schild_fitness = evaluation(next_generation[1]);
 
-    for (int i = 0; i < POP_SIZE; i++) {
-        if(max_fitness < population_fitness[i])
-        {
-            mfi = i;
-            max_fitness = population_fitness[i];
+    //PRIMER HIJO
+    //Busca el primer elemento de mayor fitness
+    auto idx = lower_bound(population_fitness.begin(),population_fitness.end(),fchild_fitness);
+
+    //Desplaza los de menor fitness hacia abajo y remplaza en la posicion que corresponde
+    if(idx != population_fitness.begin()){
+        int end = (idx - population_fitness.begin() - 1);
+
+        for(int i=1; i <= end; i++){
+            population_fitness[i-1] = population_fitness[i];
+            population[i-1] = population[i];
         }
+        population[end] = next_generation[0];
+        population_fitness[end] = fchild_fitness;
     }
 
-    //Sustituimos un individuo aleatorio de la poblacion por el de fitness actual
-    next_generation[rand() % POP_SIZE] = population[mfi];
+    //SEGUNDO HIJO
+    //Busca el primer elemento de mayor fitness
+    idx = lower_bound(population_fitness.begin(),population_fitness.end(),schild_fitness);
 
-    population = next_generation;
+    //Desplaza los de menor fitness hacia abajo y remplaza en la posicion que corresponde
+    if(idx != population_fitness.begin()){
+        int end = (idx - population_fitness.begin() - 1);
 
-    //Calculamos el fitness de cada elemento de la poblacion
-    for (int i = 0; i < POP_SIZE; i++) {
-        population_fitness[i] = evaluation(population[i]);
+        for(int i=1; i <= end; i++){
+            population_fitness[i-1] = population_fitness[i];
+            population[i-1] = population[i];
+        }
+        population[end] = next_generation[1];
+        population_fitness[end] = schild_fitness;
     }
 
 }
@@ -366,30 +395,17 @@ vector<bool> maximumDiversityProblem::geneticAlgorithm()
 {
     initializePopulation();
 
-    // Cada iteracion son 50 evaluaciones de la funcion objetivo -> 100.000 / 50 = 2.000
-    for(int i=0; i<2000; i++){
-        // cout << i << endl;
+    // Cada iteracion son 2 evaluaciones de la funcion objetivo -> 100.000 / 2 = 50.000
+    for(int i=0; i<50000; i++){
         selection();
         crossover();
         mutation();
         replace();
     }
 
-    //Buscamos la solucion con mayor fitness
-    int max_fitness = -1;
-    int mfi = -1;
+    final_solution = population[POP_SIZE-1];
 
-    for (int i = 0; i < POP_SIZE; i++) {
-        if(max_fitness < population_fitness[i])
-        {
-            mfi = i;
-            max_fitness = population_fitness[i];
-        }
-    }
-
-    final_solution = population[mfi];
-
-    return population[mfi];
+    return population[POP_SIZE-1];
 }
 
 double maximumDiversityProblem::evaluation()

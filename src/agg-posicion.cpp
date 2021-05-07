@@ -1,6 +1,6 @@
 /*  Autor: Juan Miguel Gomez
-    Compilar: g++ -O2 -o agg-uniforme agg-uniforme.cpp
-    Ejecutar: ./agg-uniforme datos/file.txt seed
+    Compilar: g++ -O2 -o agg-posicion agg-posicion.cpp
+    Ejecutar: ./agg-posicion datos/file.txt seed
 */
 
 #include <iostream>
@@ -11,6 +11,7 @@
 #include <string>
 #include <stdlib.h>
 #include <time.h>
+#include <algorithm>
 
 #define MAX 100000
 
@@ -47,14 +48,14 @@ class maximumDiversityProblem
     // Realiza la seleccion por el metodo de seleccion por torneo
     void selection();
 
-    // Realiza el cruze llamando a la funcion uniform_crossover 2 veces
+    // Realiza el cruze llamando a la funcion position_crossover 2 veces
     void crossover();
 
     // Realiza la mutacion
     void mutation();
 
-    // Cruze uniforme (intento de optimizacion)
-    vector<bool> uniform_crossover(vector<bool> first_parent, vector<bool> second_parent);
+    // Cruze basado en posicion (intento de optimizacion)
+    vector<bool> position_crossover(vector<bool> first_parent, vector<bool> second_parent);
 
     //Funcion que calcula la contribucion de un elemento en la solucion
     double getContribution(int idx, vector<bool> solution);
@@ -210,108 +211,34 @@ void maximumDiversityProblem::crossover()
 
     for (int i = 0; i < CROSS_NUM; i++) {
         int idx = i*2;
-        vector<bool> first = uniform_crossover(next_generation[idx],next_generation[idx+1]);
-        vector<bool> second = uniform_crossover(next_generation[idx],next_generation[idx+1]);
+        vector<bool> first = position_crossover(next_generation[idx],next_generation[idx+1]);
+        vector<bool> second = position_crossover(next_generation[idx],next_generation[idx+1]);
 
         next_generation[idx] = first;
         next_generation[idx+1] = second;
     }
 }
 
-/**    Esta funcion implementa el cruze explicado en el seminario
-Vamos a estudiar como se comporta el cruze con genes no comunes
-SI NO SE COMPARTE EL GEN, Se escoge aleatoriamente un padre o otro
-SI SE COMPARTE EL GEN, Se escoge el gen de cualquiera de los dos, ya que es el mismo
-
-Si tenemos en cuenta que usamos una representacion binaria
-SI NO SE COMPARTE EL GEN, El gen en un padre sera 1 y en el otro 0 -> Esto es lo miso que escoger aleatoriamente 1 o 0,
-ya que escogeriamos aleatoriamente un padre o otro
-SI SE COMPARTE EL GEN, El gen sera el de los dos
-
-El algoritmo va a rellenar aleatoriamete el hijo para rellenar las posiciones donde no se comparte el gen
-A posteriori algoritmo va a cambiar los genes que coincidan en ambos padres al que corresponda
-Por ultimo llama al reparador
-
-El resultado es el mismo pero mas eficiente por que se generan menos numeros aleatorios
-Se aprovecha/optimiza por que genero aleatoriomente los genes con muy pocos rand(), utilizando los bits del numero generado
-**/
-vector<bool> maximumDiversityProblem::uniform_crossover(vector<bool> first_parent, vector<bool> second_parent)
+vector<bool> maximumDiversityProblem::position_crossover(vector<bool> first_parent, vector<bool> second_parent)
 {
     vector<bool> child(n);
-
-    // Rellenar aleatoriamente el hijo.
-    int random;
-    int nogg = 0; //Number of generated genes
-
-    while(nogg < n){
-        random = rand();
-        // cout << " " << random << endl;
-        int noub = 0; //Number of used bits
-
-        while(noub < 32 && nogg < n){
-            bool bit = random & 0x00000001;
-            random =  random >> 1;
-            child[nogg] = bit;
-            nogg++;
-            noub++;
-        }
-    }
+    vector<bool> rest;
+    vector<int> indices;
 
     //Insertamos genes comunes
     for (int i = 0; i < n; i++) {
-        if(first_parent[i] == second_parent[i]) child[i] = first_parent[i];
-    }
-
-    //Reparamos
-
-    //Contamos los elementos seleccionados
-    int v = 0;
-    for (int i = 0; i < n; i++) {
-        if(child[i]) v++;
-    }
-
-    // Si se necesitan mas seleccionados
-    while(v<m)
-    {
-        int mci = 0; // Max contribution index
-        double max_contribution = -1;
-
-        for (int i = 0; i < n; i++) {
-
-            if(!child[i]){
-                double contribution = getContribution(i,child);
-                if(contribution > max_contribution){
-                    max_contribution = contribution;
-                    mci = i;
-                }
-            }
-
+        if(first_parent[i] == second_parent[i]){
+            child[i] = first_parent[i];
+        }else{
+            rest.push_back(first_parent[i]);
+            indices.push_back(i);
         }
-
-        child[mci] = true;
-        v++;
     }
 
-    //Si se necesitan menos seleccionados
-    while(v>m)
-    {
-        int mci = 0; // Max contribution index
-        double max_contribution = -1;
+    random_shuffle (rest.begin(), rest.end());
 
-        for (int i = 0; i < n; i++) {
-
-            if(child[i]){
-                double contribution = getContribution(i,child);
-                if(contribution > max_contribution){
-                    max_contribution = contribution;
-                    mci = i;
-                }
-            }
-
-        }
-
-        child[mci] = false;
-        v--;
+    for (int i=0; i < rest.size(); i++) {
+        child[indices[i]] = rest[i];
     }
 
     return child;
@@ -327,11 +254,11 @@ void maximumDiversityProblem::mutation()
         int gen1 = rand() % n;
         int gen2;
 
-        //Buscamos dos genes diferentes
         do gen2 = rand() % n;
         while(next_generation[idx][gen1] == next_generation[idx][gen2]);
 
-        //Intercambiamos genes
+        // cout << idx << "," << gen1 << endl << endl;
+
         next_generation[idx][gen1] = !next_generation[idx][gen1];
         next_generation[idx][gen2] = !next_generation[idx][gen2];
     }
