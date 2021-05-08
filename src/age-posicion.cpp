@@ -86,7 +86,6 @@ class maximumDiversityProblem
     // Calcula la diversidad entre los elementos seleccionados con el metodo del MaxSum
     double evaluation();
 
-    bool ordenFitness (vector<bool> a, vector<bool> b);
 };
 
 int main(int argc, char const *argv[])

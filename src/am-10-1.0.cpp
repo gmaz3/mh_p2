@@ -1,6 +1,6 @@
 /*  Autor: Juan Miguel Gomez
-    Compilar: g++ -O2 -o age-uniforme age-uniforme.cpp
-    Ejecutar: ./age-uniforme datos/file.txt seed
+    Compilar: g++ -O2 -o agg-uniforme agg-uniforme.cpp
+    Ejecutar: ./agg-uniforme datos/file.txt seed
 */
 
 #include <iostream>
@@ -55,17 +55,22 @@ class maximumDiversityProblem
     // Cruze uniforme (intento de optimizacion)
     vector<bool> uniform_crossover(vector<bool> first_parent, vector<bool> second_parent);
 
-    //Funcion que calcula la contribucion de un elemento en la solucion
+    //Funcion que calcula la contribucion de un elemento en la solucion con representacion binaria
     double getContribution(int idx, vector<bool> solution);
+
+    //Funcion que calcula la contribucion de un elemento en la solucion con representacion de conjunto
+    double getContribution(int idx, set<int> set);
 
     // Realiza el cambio de generacion manteniendo la mejor solucion
     void replace();
 
+    vector<bool> findLocalSearchSolution(vector<bool> initial_solution);
+
+    vector<int> sortSolution(set<int> solution);
+
     public:
 
     const int POP_SIZE = 50;
-
-    const int NG_SIZE = 2;
 
     const double CROSS_PROB = 0.7;
 
@@ -85,6 +90,7 @@ class maximumDiversityProblem
 
     // Calcula la diversidad entre los elementos seleccionados con el metodo del MaxSum
     double evaluation();
+
 
 };
 
@@ -181,53 +187,41 @@ void maximumDiversityProblem::initializePopulation()
     //Calculamos el fitness de cada elemento de la poblacion
     for (int i = 0; i < POP_SIZE; i++) {
         population_fitness[i] = evaluation(population[i]);
-    }
-
-    //Ordenamos la poblacion por fitness
-    int i, j;
-    for (i = 0; i < POP_SIZE-1; i++){
-        double min_fitness = population_fitness[i];
-        int mfi = i;
-
-        for (j = i+1; j < POP_SIZE; j++) {
-            if (population_fitness[j] < min_fitness){
-                min_fitness = population_fitness[j];
-                mfi = j;
-            }
-        }
-
-        vector<bool> aux = population[mfi];
-        population_fitness[mfi] = population_fitness[i];
-        population[mfi] = population[i];
-        population_fitness[i] = min_fitness;
-        population[i] = aux;
+        // cout << population_fitness[i] << endl;
     }
 
 }
 
 void maximumDiversityProblem::selection()
 {
-    next_generation.resize(NG_SIZE);
+    next_generation.resize(POP_SIZE);
 
-    for (int i = 0; i < NG_SIZE; i++) {
+    for (int i = 0; i < POP_SIZE; i++) {
         int first  =  rand() % POP_SIZE;
         int second =  rand() % POP_SIZE;
 
         if(population_fitness[first] > population_fitness[second]){
             next_generation[i] = population[first];
+            // cout << " -> " << population_fitness[first] << endl;
         }else{
             next_generation[i] = population[second];
+            // cout << " -> " << population_fitness[second] << endl;
         }
     }
 }
 
 void maximumDiversityProblem::crossover()
 {
-    vector<bool> first = uniform_crossover(next_generation[0],next_generation[1]);
-    vector<bool> second = uniform_crossover(next_generation[0],next_generation[1]);
+    const int CROSS_NUM = POP_SIZE * CROSS_PROB * 0.5;
 
-    next_generation[0] = first;
-    next_generation[1] = second;
+    for (int i = 0; i < CROSS_NUM; i++) {
+        int idx = i*2;
+        vector<bool> first = uniform_crossover(next_generation[idx],next_generation[idx+1]);
+        vector<bool> second = uniform_crossover(next_generation[idx],next_generation[idx+1]);
+
+        next_generation[idx] = first;
+        next_generation[idx+1] = second;
+    }
 }
 
 /**    Esta funcion implementa el cruze explicado en el seminario
@@ -331,59 +325,48 @@ vector<bool> maximumDiversityProblem::uniform_crossover(vector<bool> first_paren
 
 void maximumDiversityProblem::mutation()
 {
-    for (int i = 0; i < NG_SIZE; i++) {
-        //Generamos un real aleatorio entre 0-1
-        double random = rand() % (int) 1e8;
-        random /= 1e8;
+    const int MUT_NUM = MUT_PROB * n;
+    // cout << "mut: " << MUT_PROB * n << endl;
 
-        if(random < MUT_PROB){
-            int gen1 = rand() % n;
-            int gen2;
+    for (int i = 0; i < MUT_NUM; i++) {
+        int idx = rand() % POP_SIZE;
+        int gen1 = rand() % n;
+        int gen2;
 
-            do gen2 = rand() % n;
-            while(next_generation[i][gen1] == next_generation[i][gen2]);
+        //Buscamos dos genes diferentes
+        do gen2 = rand() % n;
+        while(next_generation[idx][gen1] == next_generation[idx][gen2]);
 
-            next_generation[i][gen1] = !next_generation[i][gen1];
-            next_generation[i][gen2] = !next_generation[i][gen2];
-        }
+        //Intercambiamos genes
+        next_generation[idx][gen1] = !next_generation[idx][gen1];
+        next_generation[idx][gen2] = !next_generation[idx][gen2];
     }
 }
 
 void maximumDiversityProblem::replace()
 {
-    double fchild_fitness = evaluation(next_generation[0]);
-    double schild_fitness = evaluation(next_generation[1]);
+    int max_fitness = -1;
+    int mfi = -1;
 
-    //PRIMER HIJO
-    //Busca el primer elemento de mayor fitness
-    auto idx = lower_bound(population_fitness.begin(),population_fitness.end(),fchild_fitness);
-
-    //Desplaza los de menor fitness hacia abajo y remplaza en la posicion que corresponde
-    if(idx != population_fitness.begin()){
-        int end = (idx - population_fitness.begin() - 1);
-
-        for(int i=1; i <= end; i++){
-            population_fitness[i-1] = population_fitness[i];
-            population[i-1] = population[i];
+    for (int i = 0; i < POP_SIZE; i++) {
+        if(max_fitness < population_fitness[i])
+        {
+            mfi = i;
+            max_fitness = population_fitness[i];
         }
-        population[end] = next_generation[0];
-        population_fitness[end] = fchild_fitness;
     }
 
-    //SEGUNDO HIJO
-    //Busca el primer elemento de mayor fitness
-    idx = lower_bound(population_fitness.begin(),population_fitness.end(),schild_fitness);
+    //Sustituimos un individuo aleatorio de la poblacion por el de fitness actual
+    next_generation[rand() % POP_SIZE] = population[mfi];
 
-    //Desplaza los de menor fitness hacia abajo y remplaza en la posicion que corresponde
-    if(idx != population_fitness.begin()){
-        int end = (idx - population_fitness.begin() - 1);
+    population = next_generation;
 
-        for(int i=1; i <= end; i++){
-            population_fitness[i-1] = population_fitness[i];
-            population[i-1] = population[i];
-        }
-        population[end] = next_generation[1];
-        population_fitness[end] = schild_fitness;
+    //Barajamos para que sea mas correcto
+    random_shuffle (population.begin(), population.end());
+
+    //Calculamos el fitness de cada elemento de la poblacion
+    for (int i = 0; i < POP_SIZE; i++) {
+        population_fitness[i] = evaluation(population[i]);
     }
 
 }
@@ -392,18 +375,126 @@ vector<bool> maximumDiversityProblem::geneticAlgorithm()
 {
     initializePopulation();
 
-    // Cada iteracion son 2 evaluaciones de la funcion objetivo -> 100.000 / 2 = 50.000
-    for(int i=0; i<50000; i++){
+    // Cada iteracion son 52 evaluaciones de media de la funcion objetivo -> 100.000 / 52 = 1923
+    for(int i=0; i<1923; i++){
         // cout << i << endl;
+
         selection();
         crossover();
         mutation();
         replace();
+
+        if(i%10 == 0){
+            for (size_t i = 0; i < POP_SIZE; i++) {
+                population[i] = findLocalSearchSolution(population[i]);
+                population_fitness[i] = evaluation(population[i]);
+            }
+        }
     }
 
-    final_solution = population[POP_SIZE-1];
+    //Buscamos la solucion con mayor fitness
+    int max_fitness = -1;
+    int mfi = -1;
 
-    return population[POP_SIZE-1];
+    for (int i = 0; i < POP_SIZE; i++) {
+        if(max_fitness < population_fitness[i])
+        {
+            mfi = i;
+            max_fitness = population_fitness[i];
+        }
+    }
+
+    final_solution = population[mfi];
+
+    return population[mfi];
+}
+
+vector<bool> maximumDiversityProblem::findLocalSearchSolution(vector<bool> initial_solution)
+{
+    set<int> solution;
+
+    //Rellenamos la solucion (pipeline)
+    for (int i = 0; i < n; i++) {
+        if(initial_solution[i]) solution.insert(i);
+    }
+
+    // La valoracion de la solucion de la que partimos
+    double solutionValue = evaluation(initial_solution);
+
+  if(!distances.empty()){
+
+      bool isEnd = false;
+      int iterations = 0;
+      int maxIter = 400; //
+
+      // Bucle que finaliza en caso de que llegamos al maximo de iteraciones o se recorre todos los vecinos sin encontrar solucion mejor
+      while(!isEnd){
+          // sorted es un vector con los elementos de selecionados ordenados por su contribucion
+          vector<int> sorted = sortSolution(solution);
+          bool hasImproved = false;
+          int i = 0;
+
+          // Elemento candidato a extraerse de selecionados; Elemento candidato a introducirse en selecionados
+          int item2pull, item2push;
+          // Contribuciones del elemento a extraerse e introducirse respectivamente
+          double cont2pull, cont2push, delta;
+
+          // Mientras no mejoremos la solucion y no hayamos recorrido todos los elementos de seleccionados
+          while(!hasImproved && !isEnd){
+              // Obtenemos el siguiente elemento candidato a extrerse, que sera el que menos contribuya de los restantes
+              item2pull = sorted[i];
+              //Calculamos la contribucion
+              cont2pull = getContribution(item2pull,solution);
+              int j = 0;
+
+              // Selecionados sin el elemento candidato a extraerse
+              set<int> new_selected(solution);
+              new_selected.erase(item2pull);
+
+              // Mientras no mejoremos la solucion y no hayamos recorrido todos los elementos que se pueden introducir
+              while(!hasImproved && !isEnd && j < n){
+                  if(solution.find(j) == solution.end()){ // Comprueba que el elemento no esta en selecionados => EVITA SOLUCION INCORRECTA
+                      item2push = j;
+                      cont2push = getContribution(item2push, new_selected);
+
+                      // Diferencia entre las contribuciones
+                      delta = cont2push - cont2pull;
+
+                      iterations++;
+
+                      // Si la diferencia es positiva hemos encontrado uno que mejora y salimos para hacer el cambio => BUSQUEDA LOCAL DEL PRIMER MEJOR
+                      hasImproved = delta > 0;
+                      isEnd = iterations > maxIter;
+                  }
+
+                  j++;
+              }
+
+              i++;
+              isEnd = i == sorted.size() || iterations > maxIter;
+          }
+
+          // Si hay mejora la solucion hace el intercambio en seleccionados y actualiza el valor de la solucion actual sin recalcular todo
+          if(hasImproved){
+              solution.erase(item2pull);
+              solution.insert(item2push);
+              solutionValue += delta;
+          }
+      }
+
+  }else{
+    cout << "Error: Se deben leer antes las distancias" << endl;
+  }
+
+  vector<bool> boolSolution(n);
+
+  auto it = solution.begin();
+
+  for (it; it != solution.end(); it++) {
+      boolSolution[*it] = true;
+  }
+
+  return boolSolution;
 }
 
 double maximumDiversityProblem::evaluation()
@@ -463,4 +554,55 @@ double maximumDiversityProblem::getContribution(int idx, vector<bool> solution)
     }
 
     return accum;
+}
+
+double maximumDiversityProblem::getContribution(int i, set<int> set)
+{
+    double accum = 0;
+
+    auto it = set.begin();
+    for(it; it != set.end(); it++){
+        accum += distances[i][*it];
+    }
+
+    return accum;
+}
+
+vector<int> maximumDiversityProblem::sortSolution(set<int> solution)
+{
+    vector<int> sort_solution(solution.begin(),solution.end());
+    vector<double> set_distances;
+
+
+    auto it = solution.begin();
+
+    // Calcula las distancias (contribucion en la diversidad) de cada elemento de seleccionados al resto en un vector
+    for(it; it != solution.end(); it++){
+        set_distances.push_back(getContribution(*it,solution));
+    }
+
+    int lower_idx;
+    double lower_dis;
+
+    // Ordenamos selecionados por orden de menor contribucion usando el vector anterior
+    for(int i=0; i<m; i++){
+        int idx = i;
+        for(int j=i; j<m; j++){
+            if(set_distances[j] < set_distances[idx]){
+                idx = j;
+            }
+        }
+
+        // Intercambio
+        lower_dis = set_distances[idx];
+        set_distances[idx] = set_distances[i];
+        set_distances[i] = lower_dis;
+
+        lower_idx = sort_solution[idx];
+        sort_solution[idx] = sort_solution[i];
+        sort_solution[i] = lower_idx;
+
+    }
+
+    return sort_solution;
 }
