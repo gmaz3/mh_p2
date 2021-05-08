@@ -276,48 +276,76 @@ vector<bool> maximumDiversityProblem::uniform_crossover(vector<bool> first_paren
         if(child[i]) v++;
     }
 
-    // Si se necesitan mas seleccionados
-    while(v<m)
-    {
-        int mci = 0; // Max contribution index
-        double max_contribution = -1;
+    if(v != m){
+        vector<double> contributions(n);
 
-        for (int i = 0; i < n; i++) {
+        if(v<m){
+            for (int i = 0; i < n; i++) {
+                if(!child[i]) contributions[i] = getContribution(i,child);
+            }
+            while(v<m)
+            {
 
-            if(!child[i]){
-                double contribution = getContribution(i,child);
-                if(contribution > max_contribution){
-                    max_contribution = contribution;
-                    mci = i;
+                int mci = 0; // Max contribution index
+                double max_contribution = -1;
+
+                //Calculamos el de maxima contribucion
+                for (int i = 0; i < n; i++) {
+                    if(!child[i]){
+                        double contribution = contributions[i];
+                        if(contribution > max_contribution){
+                            max_contribution = contribution;
+                            mci = i;
+                        }
+                    }
+                }
+
+                child[mci] = true;
+                v++;
+
+                // Actualizamos contribuciones
+                for (int i = 0; i < n; i++) {
+                    if(!child[i]) contributions[i] += distances[i][mci];
+                }
+
+            }
+
+        }else{
+            for (int i = 0; i < n; i++) {
+                if(child[i]) contributions[i] = getContribution(i,child);
+            }
+            //Calculamos la contribucion de todos los genes a la solucion actual
+            // Si se necesitan mas seleccionados
+
+            //Si se necesitan menos seleccionados
+            while(v>m)
+            {
+
+                int mci = 0; // Max contribution index
+                double max_contribution = -1;
+
+                for (int i = 0; i < n; i++) {
+
+                    if(child[i]){
+                        double contribution = contributions[i];
+                        if(contribution > max_contribution){
+                            max_contribution = contribution;
+                            mci = i;
+                        }
+                    }
+
+                }
+
+                child[mci] = false;
+                v--;
+
+                // Actualizamos contribuciones
+                for (int i = 0; i < n; i++) {
+                    if(child[i]) contributions[i] -= distances[i][mci];
                 }
             }
 
         }
-
-        child[mci] = true;
-        v++;
-    }
-
-    //Si se necesitan menos seleccionados
-    while(v>m)
-    {
-        int mci = 0; // Max contribution index
-        double max_contribution = -1;
-
-        for (int i = 0; i < n; i++) {
-
-            if(child[i]){
-                double contribution = getContribution(i,child);
-                if(contribution > max_contribution){
-                    max_contribution = contribution;
-                    mci = i;
-                }
-            }
-
-        }
-
-        child[mci] = false;
-        v--;
     }
 
     return child;
