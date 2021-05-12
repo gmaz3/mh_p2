@@ -404,8 +404,8 @@ vector<bool> maximumDiversityProblem::geneticAlgorithm()
     const int LS_NUM = 0.1 * POP_SIZE;
     initializePopulation();
 
-    // 50*10 + 5 = 505/10 = 50.05 aprox a 50 evaluciones por iteracion
-    // Cada iteracion son 52 evaluaciones de media de la funcion objetivo -> 100.000 / 52 = 1923
+    // 50*10 + 2*5 = 510/10 = 51 aprox a 50 evaluciones por iteracion
+    // Cada iteracion son 50 evaluaciones de media de la funcion objetivo -> 100.000 / 50 = 2000
     for(int i=0; i<2000; i++){
         // cout << i << endl;
 

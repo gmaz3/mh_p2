@@ -403,7 +403,9 @@ vector<bool> maximumDiversityProblem::geneticAlgorithm()
 {
     initializePopulation();
 
-    // Cada iteracion son 52 evaluaciones de media de la funcion objetivo -> 100.000 / 52 = 1923
+    // Cada iteracion son 52 evaluaciones de media de la funcion objetivo -> 100.000 / 52 = 1923 -> MAL
+    // ! Son 60 evaluciones realmente pero me he dado cuenta tarde cuando ya tengo los resultados !
+    // 10 * 50 + 2 * 50 = 600
     for(int i=0; i<1923; i++){
         // cout << i << endl;
 
